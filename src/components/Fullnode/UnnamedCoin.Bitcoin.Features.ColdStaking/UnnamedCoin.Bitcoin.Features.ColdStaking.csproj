@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <RuntimeFrameworkVersion>2.2.7</RuntimeFrameworkVersion>
+    <AssemblyName>UnnamedCoin.Bitcoin.Features.ColdStaking</AssemblyName>
+    <PackageId></PackageId>
+    <GenerateAssemblyConfigurationAttribute>false</GenerateAssemblyConfigurationAttribute>
+    <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
+    <GenerateAssemblyProductAttribute>false</GenerateAssemblyProductAttribute>
+    <VersionPrefix>1.0.0</VersionPrefix>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+    <Authors></Authors>
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DocumentationFile></DocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <DocumentationFile />
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.2.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\NBitcoin\NBitcoin.csproj" />
+    <ProjectReference Include="..\UnnamedCoin.Bitcoin.Features.Wallet\UnnamedCoin.Bitcoin.Features.Wallet.csproj" />
+    <ProjectReference Include="..\UnnamedCoin.Bitcoin\UnnamedCoin.Bitcoin.csproj" />
+  </ItemGroup>
+
+</Project>

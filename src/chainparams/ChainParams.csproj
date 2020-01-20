@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <RuntimeFrameworkVersion>2.2.7</RuntimeFrameworkVersion>
+    <RootNamespace>ChainParams</RootNamespace>
+    <AssemblyName>ChainParams</AssemblyName>
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\components\Fullnode\UnnamedCoin.Bitcoin.Features.Api\UnnamedCoin.Bitcoin.Features.Api.csproj" />
+    <ProjectReference Include="..\components\Fullnode\UnnamedCoin.Bitcoin.Features.BlockStore\UnnamedCoin.Bitcoin.Features.BlockStore.csproj" />
+    <ProjectReference Include="..\components\Fullnode\UnnamedCoin.Bitcoin.Features.ColdStaking\UnnamedCoin.Bitcoin.Features.ColdStaking.csproj" />
+    <ProjectReference Include="..\components\Fullnode\UnnamedCoin.Bitcoin.Features.Consensus\UnnamedCoin.Bitcoin.Features.Consensus.csproj" />
+    <ProjectReference Include="..\components\Fullnode\UnnamedCoin.Bitcoin.Features.MemoryPool\UnnamedCoin.Bitcoin.Features.MemoryPool.csproj" />
+    <ProjectReference Include="..\components\Fullnode\UnnamedCoin.Bitcoin.Features.Miner\UnnamedCoin.Bitcoin.Features.Miner.csproj" />
+    <ProjectReference Include="..\components\Fullnode\UnnamedCoin.Bitcoin.Features.RPC\UnnamedCoin.Bitcoin.Features.RPC.csproj" />
+    <ProjectReference Include="..\components\Fullnode\UnnamedCoin.Bitcoin.Features.Wallet\UnnamedCoin.Bitcoin.Features.Wallet.csproj" />
+    <ProjectReference Include="..\components\Fullnode\UnnamedCoin.Bitcoin\UnnamedCoin.Bitcoin.csproj" />
+    <ProjectReference Include="..\components\NBitcoin\NBitcoin.csproj" />
+  </ItemGroup>
+
+</Project>

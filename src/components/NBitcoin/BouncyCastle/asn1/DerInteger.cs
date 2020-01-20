@@ -1,0 +1,81 @@
+using System;
+using NBitcoin.BouncyCastle.math;
+using NBitcoin.BouncyCastle.util;
+
+namespace NBitcoin.BouncyCastle.asn1
+{
+    class DerInteger
+        : Asn1Object
+    {
+        readonly byte[] bytes;
+
+        public DerInteger(
+            int value)
+        {
+            this.bytes = BigInteger.ValueOf(value).ToByteArray();
+        }
+
+        public DerInteger(
+            BigInteger value)
+        {
+            if (value == null)
+                throw new ArgumentNullException("value");
+
+            this.bytes = value.ToByteArray();
+        }
+
+        public DerInteger(
+            byte[] bytes)
+        {
+            this.bytes = bytes;
+        }
+
+        public BigInteger Value => new BigInteger(this.bytes);
+
+        /**
+         * in some cases positive values Get crammed into a space,
+         * that's not quite big enough...
+         */
+        public BigInteger PositiveValue => new BigInteger(1, this.bytes);
+
+        /**
+         * return an integer from the passed in object
+         *
+         * @exception ArgumentException if the object cannot be converted.
+         */
+        public static DerInteger GetInstance(
+            object obj)
+        {
+            if (obj == null || obj is DerInteger) return (DerInteger) obj;
+
+            throw new ArgumentException("illegal object in GetInstance: " + Platform.GetTypeName(obj));
+        }
+
+        internal override void Encode(
+            DerOutputStream derOut)
+        {
+            derOut.WriteEncoded(Asn1Tags.Integer, this.bytes);
+        }
+
+        protected override int Asn1GetHashCode()
+        {
+            return Arrays.GetHashCode(this.bytes);
+        }
+
+        protected override bool Asn1Equals(
+            Asn1Object asn1Object)
+        {
+            var other = asn1Object as DerInteger;
+
+            if (other == null)
+                return false;
+
+            return Arrays.AreEqual(this.bytes, other.bytes);
+        }
+
+        public override string ToString()
+        {
+            return this.Value.ToString();
+        }
+    }
+}

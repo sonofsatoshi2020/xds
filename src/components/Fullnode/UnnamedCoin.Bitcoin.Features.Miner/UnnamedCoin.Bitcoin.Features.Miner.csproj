@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <RuntimeFrameworkVersion>2.2.7</RuntimeFrameworkVersion>
+    <AssemblyName>UnnamedCoin.Bitcoin.Features.Miner</AssemblyName>
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.2.5" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\NBitcoin\NBitcoin.csproj" />
+    <ProjectReference Include="..\UnnamedCoin.Bitcoin.Features.MemoryPool\UnnamedCoin.Bitcoin.Features.MemoryPool.csproj" />
+    <ProjectReference Include="..\UnnamedCoin.Bitcoin.Features.RPC\UnnamedCoin.Bitcoin.Features.RPC.csproj" />
+    <ProjectReference Include="..\UnnamedCoin.Bitcoin.Features.Wallet\UnnamedCoin.Bitcoin.Features.Wallet.csproj" />
+    <ProjectReference Include="..\UnnamedCoin.Bitcoin\UnnamedCoin.Bitcoin.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
+    <DefineConstants>$(DefineConstants);NETCORE</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <NoWarn>1701;1702;1705;IDE0008;</NoWarn>
+    <DocumentationFile></DocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <NoWarn>1701;1702;1705;IDE0008;</NoWarn>
+    <DocumentationFile />
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,25 @@
+﻿using System.Linq;
+using NBitcoin;
+using UnnamedCoin.Bitcoin.Controllers.Models;
+
+namespace UnnamedCoin.Bitcoin.Features.BlockStore.Models
+{
+    public class BlockTransactionDetailsModel : BlockModel
+    {
+        public BlockTransactionDetailsModel(Block block, ChainedHeader chainedHeader, ChainedHeader tip,
+            Network network) : base(block, chainedHeader, tip, network)
+        {
+            this.Transactions = block.Transactions.Select(trx => new TransactionVerboseModel(trx, network)).ToArray();
+        }
+
+        public BlockTransactionDetailsModel()
+        {
+        }
+
+        /// <summary>
+        ///     Hides the existing Transactions property of type <see cref="string[]" /> and replaces with the
+        ///     <see cref="TransactionVerboseModel[]" />.
+        /// </summary>
+        public new TransactionVerboseModel[] Transactions { get; set; }
+    }
+}
