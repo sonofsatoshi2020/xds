@@ -337,7 +337,7 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
 
             var MHashedPerSec = Math.Round((totalNonce / stopwatch.Elapsed.TotalSeconds) / 1_000_000, 4);
 
-            this.logger.LogInformation($"Difficulty={block.Header.Bits.Difficulty}, extraNonce={context.ExtraNonce}, hashes={totalNonce}, execution={stopwatch.Elapsed.TotalSeconds} sec, rate={MHashedPerSec} MHash/sec");
+            this.logger.LogInformation($"Difficulty={block.Header.Bits.Difficulty}, extraNonce={context.ExtraNonce}, hashes={totalNonce}, execution={stopwatch.Elapsed.TotalSeconds} sec, rate={MHashedPerSec} MHash/sec ({threads} threads)");
 
             return false;
         }
