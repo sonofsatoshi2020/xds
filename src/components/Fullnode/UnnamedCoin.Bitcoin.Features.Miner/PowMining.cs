@@ -6,6 +6,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
+using NBitcoin.BouncyCastle.math;
+using NBitcoin.Crypto;
 using UnnamedCoin.Bitcoin.AsyncWork;
 using UnnamedCoin.Bitcoin.Consensus;
 using UnnamedCoin.Bitcoin.Features.MemoryPool;
@@ -280,11 +282,11 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
             var block = context.BlockTemplate.Block;
             block.Header.Nonce = 0;
 
-            uint looplength = 1_000_000;
+            uint looplength = 2_000_000;
             int threads = this.minerSettings.MineThreadCount; // Environment.ProcessorCount;
             int batch = threads;
             var totalNonce = batch * looplength;
-            uint winnernone = 0;
+            uint winnernonce = 0;
             bool found = false;
 
             ParallelOptions options = new ParallelOptions() { MaxDegreeOfParallelism = threads, CancellationToken = this.miningCancellationTokenSource.Token };
@@ -300,19 +302,20 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
                 if (this.miningCancellationTokenSource.Token.IsCancellationRequested)
                     return;
 
-                var minerheader = this.network.Consensus.ConsensusFactory.CreateBlockHeader();
-                minerheader.FromBytes(block.Header.ToBytes(this.network.Consensus.ConsensusFactory), this.network.Consensus.ConsensusFactory);
+                uint256 bits = block.Header.Bits.ToUInt256();
 
-                minerheader.Nonce = (uint)index * looplength;
-                var end = minerheader.Nonce + looplength;
+                var headerbytes = block.Header.ToBytes(this.network.Consensus.ConsensusFactory);
+                uint nonce = (uint)index * looplength;
 
-                this.logger.LogDebug($"nonce={minerheader.Nonce}, end={end}, index={index}, context.ExtraNonce={context.ExtraNonce}, looplength={looplength}");
+                var end = nonce + looplength;
 
-                while (minerheader.Nonce < end)
+                //this.logger.LogDebug($"nonce={nonce}, end={end}, index={index}, context.ExtraNonce={context.ExtraNonce}, looplength={looplength}");
+
+                while (nonce < end)
                 {
-                    if (minerheader.CheckProofOfWork())
+                    if (CheckProofOfWork(headerbytes, nonce, bits))
                     {
-                        winnernone = minerheader.Nonce;
+                        winnernonce = nonce;
                         found = true;
                         state.Stop();
 
@@ -322,7 +325,7 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
                     if (state.IsStopped)
                         return;
 
-                    ++minerheader.Nonce;
+                    ++nonce;
                 }
             });
 
@@ -330,16 +333,34 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
 
             if (found)
             {
-                block.Header.Nonce = winnernone;
+                block.Header.Nonce = winnernonce;
                 if (block.Header.CheckProofOfWork())
                     return true;
             }
 
             var MHashedPerSec = Math.Round((totalNonce / stopwatch.Elapsed.TotalSeconds) / 1_000_000, 4);
 
-            this.logger.LogInformation($"Difficulty={block.Header.Bits.Difficulty}, extraNonce={context.ExtraNonce}, hashes={totalNonce}, execution={stopwatch.Elapsed.TotalSeconds} sec, rate={MHashedPerSec} MHash/sec ({threads} threads)");
+            var currentDifficulty = BigInteger.ValueOf((long)block.Header.Bits.Difficulty);
+            var MHashedPerSecTotal = (double)currentDifficulty.Multiply(Target.Pow256).Divide(Target.Difficulty1.ToBigInteger()).Divide(BigInteger.ValueOf(10 * 60)).LongValue / 1_000_000.0;
+
+            this.logger.LogInformation($"Difficulty={block.Header.Bits.Difficulty}, extraNonce={context.ExtraNonce}, hashes={totalNonce}, execution={stopwatch.Elapsed.TotalSeconds} sec, hash-rate={MHashedPerSec} MHash/sec ({threads} threads), network hash-rate ~{MHashedPerSecTotal} MHash/sec");
 
             return false;
+        }
+
+        private static bool CheckProofOfWork(byte[] header, uint nonce, uint256 bits)
+        {
+            var bytes = BitConverter.GetBytes(nonce);
+            header[76] = bytes[0];
+            header[77] = bytes[1];
+            header[78] = bytes[2];
+            header[79] = bytes[3];
+
+            var headerHash = Sha512T.GetHash(header);
+
+            var res = headerHash <= bits;
+
+            return res;
         }
 
         /// <summary>

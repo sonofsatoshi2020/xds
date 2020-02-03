@@ -46,7 +46,13 @@ namespace NBitcoin
             this._Target = new Target(ToCompact())._Target;
         }
 
-        public static Target Difficulty1 { get; } = new Target(new byte[] {0x1d, 0x00, 0xff, 0xff});
+        public static BigInteger Pow256 = BigInteger.ValueOf(2).Pow(256);
+
+        // XDS:     0x1e0fffff, 0x1e = 30, 0xfffff * 2**(8*(0x1e - 3)) == 0x00000fffff000000000000000000000000000000000000000000000000000000
+        // Bitcoin: 0x1d00ffff, 0x1d = 29, 0xffff * 2**(8*(0x1d - 3)) ==  0x00000000FFFF0000000000000000000000000000000000000000000000000000
+
+        public static Target Difficulty1 { get; } = new Target(new byte[] { 0x1e, 0x0f, 0xff, 0xff });
+       // public static Target Difficulty1 { get; } = new Target(new byte[] { 0x1d, 0x00, 0xff, 0xff });
 
         public double Difficulty
         {
