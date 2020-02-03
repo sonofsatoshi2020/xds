@@ -1,9 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
+using NBitcoin.BouncyCastle.math;
+using NBitcoin.Crypto;
 using UnnamedCoin.Bitcoin.AsyncWork;
 using UnnamedCoin.Bitcoin.Consensus;
 using UnnamedCoin.Bitcoin.Features.MemoryPool;
@@ -38,7 +42,7 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
         /// </summary>
         public const int DefaultBlockMinTxFee = 1;
 
-        const int InnerLoopCount = 0x10000;
+        //const int InnerLoopCount = 10_000_000;
 
         /// <summary>Factory for creating background async loop tasks.</summary>
         readonly IAsyncProvider asyncProvider;
@@ -56,6 +60,7 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
         readonly IDateTimeProvider dateTimeProvider;
 
         readonly IInitialBlockDownloadState initialBlockDownloadState;
+        private readonly MinerSettings minerSettings;
 
         /// <summary>Instance logger.</summary>
         readonly ILogger logger;
@@ -97,7 +102,8 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
             Network network,
             INodeLifetime nodeLifetime,
             ILoggerFactory loggerFactory,
-            IInitialBlockDownloadState initialBlockDownloadState)
+            IInitialBlockDownloadState initialBlockDownloadState,
+            MinerSettings minerSettings)
         {
             this.asyncProvider = asyncProvider;
             this.blockProvider = blockProvider;
@@ -106,6 +112,7 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
             this.dateTimeProvider = dateTimeProvider;
             this.loggerFactory = loggerFactory;
             this.initialBlockDownloadState = initialBlockDownloadState;
+            this.minerSettings = minerSettings;
             this.logger = loggerFactory.CreateLogger(GetType().FullName);
             this.mempool = mempool;
             this.mempoolLock = mempoolLock;
@@ -125,34 +132,34 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
                 CancellationTokenSource.CreateLinkedTokenSource(this.nodeLifetime.ApplicationStopping);
 
             this.miningLoop = this.asyncProvider.CreateAndRunAsyncLoop("PowMining.Mine", token =>
+            {
+                try
                 {
-                    try
-                    {
-                        GenerateBlocks(new ReserveScript {ReserveFullNodeScript = reserveScript}, int.MaxValue,
-                            int.MaxValue);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // Application stopping, nothing to do as the loop will be stopped.
-                    }
-                    catch (MinerException me)
-                    {
-                        // Block not accepted by peers or invalid. Should not halt mining.
-                        this.logger.LogDebug("Miner exception occurred in miner loop: {0}", me.ToString());
-                    }
-                    catch (ConsensusErrorException cee)
-                    {
-                        // Issues constructing block or verifying it. Should not halt mining.
-                        this.logger.LogDebug("Consensus error exception occurred in miner loop: {0}", cee.ToString());
-                    }
-                    catch
-                    {
-                        this.logger.LogTrace("(-)[UNHANDLED_EXCEPTION]");
-                        throw;
-                    }
+                    GenerateBlocks(new ReserveScript { ReserveFullNodeScript = reserveScript }, int.MaxValue,
+                        int.MaxValue);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Application stopping, nothing to do as the loop will be stopped.
+                }
+                catch (MinerException me)
+                {
+                    // Block not accepted by peers or invalid. Should not halt mining.
+                    this.logger.LogDebug("Miner exception occurred in miner loop: {0}", me.ToString());
+                }
+                catch (ConsensusErrorException cee)
+                {
+                    // Issues constructing block or verifying it. Should not halt mining.
+                    this.logger.LogDebug("Consensus error exception occurred in miner loop: {0}", cee.ToString());
+                }
+                catch
+                {
+                    this.logger.LogTrace("(-)[UNHANDLED_EXCEPTION]");
+                    throw;
+                }
 
-                    return Task.CompletedTask;
-                },
+                return Task.CompletedTask;
+            },
                 this.miningCancellationTokenSource.Token,
                 TimeSpans.Second,
                 TimeSpans.TenSeconds);
@@ -171,7 +178,7 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
         /// <inheritdoc />
         public List<uint256> GenerateBlocks(ReserveScript reserveScript, ulong amountOfBlocksToMine, ulong maxTries)
         {
-            var context = new MineBlockContext(amountOfBlocksToMine, (ulong) this.chainIndexer.Height, maxTries,
+            var context = new MineBlockContext(amountOfBlocksToMine, (ulong)this.chainIndexer.Height, maxTries,
                 reserveScript);
 
             while (context.MiningCanContinue)
@@ -183,7 +190,7 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
                     continue;
 
                 if (!MineBlock(context))
-                    break;
+                    continue;
 
                 if (!ValidateMinedBlock(context))
                     continue;
@@ -226,7 +233,11 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
         {
             this.miningCancellationTokenSource.Token.ThrowIfCancellationRequested();
 
-            context.ChainTip = this.consensusManager.Tip;
+            if (context.ChainTip != this.consensusManager.Tip)
+            {
+                context.ChainTip = this.consensusManager.Tip;
+                context.BlockTemplate = null;
+            }
 
             // Genesis on a regtest network is a special case. We need to regard ourselves as outside of IBD to
             // bootstrap the mining.
@@ -251,8 +262,8 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
         /// </summary>
         bool BuildBlock(MineBlockContext context)
         {
-            context.BlockTemplate =
-                this.blockProvider.BuildPowBlock(context.ChainTip, context.ReserveScript.ReserveFullNodeScript);
+            if (context.BlockTemplate == null)
+                context.BlockTemplate = this.blockProvider.BuildPowBlock(context.ChainTip, context.ReserveScript.ReserveFullNodeScript);
 
             if (this.network.Consensus.IsProofOfStake)
                 if (context.BlockTemplate.Block.Header.Time <= context.ChainTip.Header.Time)
@@ -269,18 +280,87 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
             context.ExtraNonce = IncrementExtraNonce(context.BlockTemplate.Block, context.ChainTip, context.ExtraNonce);
 
             var block = context.BlockTemplate.Block;
-            while (context.MaxTries > 0 && block.Header.Nonce < InnerLoopCount && !block.CheckProofOfWork())
-            {
-                this.miningCancellationTokenSource.Token.ThrowIfCancellationRequested();
+            block.Header.Nonce = 0;
 
-                ++block.Header.Nonce;
-                --context.MaxTries;
+            uint looplength = 2_000_000;
+            int threads = this.minerSettings.MineThreadCount; // Environment.ProcessorCount;
+            int batch = threads;
+            var totalNonce = batch * looplength;
+            uint winnernonce = 0;
+            bool found = false;
+
+            ParallelOptions options = new ParallelOptions() { MaxDegreeOfParallelism = threads, CancellationToken = this.miningCancellationTokenSource.Token };
+
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            int fromInclusive = context.ExtraNonce * batch;
+            int toExclusive = fromInclusive + batch;
+
+            Parallel.For(fromInclusive, toExclusive, options, (index, state) =>
+            {
+                if (this.miningCancellationTokenSource.Token.IsCancellationRequested)
+                    return;
+
+                uint256 bits = block.Header.Bits.ToUInt256();
+
+                var headerbytes = block.Header.ToBytes(this.network.Consensus.ConsensusFactory);
+                uint nonce = (uint)index * looplength;
+
+                var end = nonce + looplength;
+
+                //this.logger.LogDebug($"nonce={nonce}, end={end}, index={index}, context.ExtraNonce={context.ExtraNonce}, looplength={looplength}");
+
+                while (nonce < end)
+                {
+                    if (CheckProofOfWork(headerbytes, nonce, bits))
+                    {
+                        winnernonce = nonce;
+                        found = true;
+                        state.Stop();
+
+                        return;
+                    }
+
+                    if (state.IsStopped)
+                        return;
+
+                    ++nonce;
+                }
+            });
+
+            stopwatch.Stop();
+
+            if (found)
+            {
+                block.Header.Nonce = winnernonce;
+                if (block.Header.CheckProofOfWork())
+                    return true;
             }
 
-            if (context.MaxTries == 0)
-                return false;
+            var MHashedPerSec = Math.Round((totalNonce / stopwatch.Elapsed.TotalSeconds) / 1_000_000, 4);
 
-            return true;
+            var currentDifficulty = BigInteger.ValueOf((long)block.Header.Bits.Difficulty);
+            var MHashedPerSecTotal = (double)currentDifficulty.Multiply(Target.Pow256).Divide(Target.Difficulty1.ToBigInteger()).Divide(BigInteger.ValueOf(10 * 60)).LongValue / 1_000_000.0;
+
+            this.logger.LogInformation($"Difficulty={block.Header.Bits.Difficulty}, extraNonce={context.ExtraNonce}, hashes={totalNonce}, execution={stopwatch.Elapsed.TotalSeconds} sec, hash-rate={MHashedPerSec} MHash/sec ({threads} threads), network hash-rate ~{MHashedPerSecTotal} MHash/sec");
+
+            return false;
+        }
+
+        private static bool CheckProofOfWork(byte[] header, uint nonce, uint256 bits)
+        {
+            var bytes = BitConverter.GetBytes(nonce);
+            header[76] = bytes[0];
+            header[77] = bytes[1];
+            header[78] = bytes[2];
+            header[79] = bytes[3];
+
+            var headerHash = Sha512T.GetHash(header);
+
+            var res = headerHash <= bits;
+
+            return res;
         }
 
         /// <summary>
@@ -288,13 +368,12 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
         /// </summary>
         bool ValidateMinedBlock(MineBlockContext context)
         {
-            if (context.BlockTemplate.Block.Header.Nonce == InnerLoopCount)
-                return false;
-
             var chainedHeader = new ChainedHeader(context.BlockTemplate.Block.Header,
                 context.BlockTemplate.Block.GetHash(), context.ChainTip);
             if (chainedHeader.ChainWork <= context.ChainTip.ChainWork)
                 return false;
+
+            var block = context.BlockTemplate.Block;
 
             return true;
         }
@@ -323,9 +402,12 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
 
         void OnBlockMined(MineBlockContext context)
         {
+            this.logger.LogInformation("==================================================================");
+
             this.logger.LogInformation("Mined new {0} block: '{1}'.",
                 BlockStake.IsProofOfStake(context.ChainedHeaderBlock.Block) ? "POS" : "POW",
                 context.ChainedHeaderBlock.ChainedHeader);
+            this.logger.LogInformation("==================================================================");
 
             context.CurrentHeight++;
 
@@ -358,6 +440,8 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
             public ulong CurrentHeight { get; set; }
             public ChainedHeader ChainTip { get; set; }
             public int ExtraNonce { get; set; }
+            public int ExtraNonceStart { get; set; }
+
             public ulong MaxTries { get; set; }
             public bool MiningCanContinue => this.CurrentHeight < this.ChainHeight + this.amountOfBlocksToMine;
         }

@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
 using UnnamedCoin.Bitcoin.Configuration;
@@ -33,6 +34,7 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
             this.Mine = config.GetOrDefault("mine", false, this.logger);
             if (this.Mine)
                 this.MineAddress = config.GetOrDefault<string>("mineaddress", null, this.logger);
+            this.MineThreadCount = config.GetOrDefault<int>("minethreads", 1, this.logger);
 
             this.Stake = config.GetOrDefault("stake", false, this.logger);
             if (this.Stake)
@@ -88,6 +90,8 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
         /// </summary>
         public bool Mine { get; }
 
+        public int MineThreadCount { get; }
+
         /// <summary>
         ///     If true this will only allow staking coins that have been flaged.
         /// </summary>
@@ -124,8 +128,11 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
 
             builder.AppendLine("-mine=<0 or 1>                      Enable POW mining.");
             builder.AppendLine("-stake=<0 or 1>                     Enable POS.");
-            builder.AppendLine(
-                "-mineaddress=<string>               The address to use for mining (empty string to select an address from the wallet).");
+            builder.AppendLine("-mineaddress=<string>               The address to use for mining (empty string to select an address from the wallet).");
+            builder.AppendLine("-minethreads=1                      Total threads to mine on (default 1).");
+
+            builder.AppendLine("-mine=<0 or 1>                      Enable POW mining.");
+
             builder.AppendLine("-walletname=<string>                The wallet name to use when staking.");
             builder.AppendLine("-walletpassword=<string>            Password to unlock the wallet.");
             builder.AppendLine(
@@ -159,6 +166,8 @@ namespace UnnamedCoin.Bitcoin.Features.Miner
             builder.AppendLine("#stake=0");
             builder.AppendLine("#The address to use for mining (empty string to select an address from the wallet).");
             builder.AppendLine("#mineaddress=<string>");
+            builder.AppendLine("#Total threads to mine on (default 1)..");
+            builder.AppendLine("#minethreads=1");
             builder.AppendLine("#The wallet name to use when staking.");
             builder.AppendLine("#walletname=<string>");
             builder.AppendLine("#Password to unlock the wallet.");
