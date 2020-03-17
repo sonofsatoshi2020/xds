@@ -29,7 +29,7 @@ namespace UnnamedCoin.Bitcoin.Features.Consensus.Rules.CommonRules
             base.Initialize();
 
             this.consensus = this.Parent.Network.Consensus;
-            var consensusRules = (PosConsensusRuleEngine) this.Parent;
+            var consensusRules = (PosConsensusRuleEngine)this.Parent;
 
             this.stakeValidator = consensusRules.StakeValidator;
             this.stakeChain = consensusRules.StakeChain;
@@ -106,6 +106,13 @@ namespace UnnamedCoin.Bitcoin.Features.Consensus.Rules.CommonRules
             if (coins.IsCoinstake)
                 if (spendHeight - coins.Height < this.consensus.CoinbaseMaturity)
                 {
+                    if (coins.TransactionId == new uint256("29e5636769fec7a173d4351c2a6241b2d9d02bccd1b4a865c996d24c85f189ef"))
+                    {
+                        // There is a special case trx in the chain that was allowed immature trx to be spent before its time.
+                        // After the issue was fixed we allowed the trx to pass
+                        return;
+                    }
+
                     this.Logger.LogDebug(
                         "Coinstake transaction height {0} spent at height {1}, but maturity is set to {2}.",
                         coins.Height, spendHeight, this.consensus.CoinbaseMaturity);
@@ -130,7 +137,7 @@ namespace UnnamedCoin.Bitcoin.Features.Consensus.Rules.CommonRules
         /// <param name="context">Context that contains variety of information regarding blocks validation and execution.</param>
         /// <exception cref="ConsensusErrors.PrevStakeNull">Thrown if previous stake is not found.</exception>
         /// <exception cref="ConsensusErrors.SetStakeEntropyBitFailed">Thrown if failed to set stake entropy bit.</exception>
-        void CheckAndComputeStake(RuleContext context)
+        private void CheckAndComputeStake(RuleContext context)
         {
             var chainedHeader = context.ValidationContext.ChainedHeaderToValidate;
             var block = context.ValidationContext.BlockToValidate;
